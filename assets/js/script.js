@@ -1,69 +1,105 @@
-const selectTag = document.querySelectorAll('select')
-const translateBtn = document.querySelector('button')
-const fromText = document.querySelector('.from-text')
-const toText = document.querySelector('.to-text')
-const exchangeIcon = document.querySelector('.exchange')
-const icons = document.querySelectorAll('.row i')
+const taskInput = document.querySelector(".task-input input")
+let todos = JSON.parse(localStorage.getItem('todo-list'))
+const taskBox = document.querySelector(".task-box") 
+const filters = document.querySelectorAll('filters span') 
+const clearAll = document.querySelector('.clear-btn') 
 
-selectTag.forEach( (tag, id) => {
-    for (const country_code in countries) {
-        let selected
+let editId
+let isEditTask = false
 
-        if(id == 0 && country_code == 'en-GB') {
-            selected = 'selected'
-        }
-        else if(id == 1 && country_code == 'hi-IN') {
-            selected = 'selected'
-        }
+filters.forEach(btn => {
+    btn.addEventListener("click", () => {
+        document.querySelector('span.active').classList.remove('active')
+        btn.classList.add('active')
+        showTodo(btn.id)
+    })
+})
 
-        let option = `<option value="${country_code}" ${selected}>${countries[country_code]}</option>`
-        tag.insertAdjacentHTML("beforeend", option)
+function showTodo (filter) {
+    let li = ''
+    if(todos) {
+        todos.forEach((todo, id) => {
+            let isCompleted = todo.status == 'completed' ? 'checked' : ''
+            if(filter == todo.status || filter == 'all'){
+                li += `<li class="task">
+                        <label for="${id}">
+                            <input onclick="updateStatus(this)" type="checkbox" id="${id}" ${isCompleted}>
+                            <p class=${isCompleted}>${todo.name}</p>
+                        </label>
+                        <div class="settings">
+                            <i onclick='showMenu(this)' class="fa-solid fa-ellipsis"></i>
+                            <ul class="task-menu">
+                                <li onclick='editTask(${id}, "${todo.name}")' ><i class="fa-solid fa-pen"></i>Edit</li>
+                                <li onclick='deleteTask(${id})' ><i class="fa-solid fa-trash"></i>Delete</li>
+                            </ul>
+                        </div>
+                    </li>`
+            }
+        }) 
     }
-})
+    taskBox.innerHTML = li || `<span>You don't have any task here</span>`
+}
 
-exchangeIcon.addEventListener('click', () => {
-    let tempText = fromText.value
-    let tempLang = selectTag[0].value
-    fromText.value = toText.value
-    selectTag[0].value = selectTag[1].value
-    toText.value = tempText
-    selectTag[1].value = tempLang
-})
-
-translateBtn.addEventListener("click", () => {
-    let text = fromText.value
-    const translateFrom = selectTag[0].value
-    const translateTo = selectTag[1].value
-    if(!text) return
-    toText.setAttribute('placeholder', 'Translating ...')
-    let apiUrl = `https://api.mymemory.translated.net/get?q=${text}&langpair=${translateFrom}|${translateTo}`
-    fetch(apiUrl).then(res => res.json()).then(data => {
-        toText.value = data.responseData.translatedText
-        toText.setAttribute('placeholder', 'Translation')
-    })
-})
-
-icons.forEach(icon => {
-    icon.addEventListener("click", ({target}) => {
-        if(target.classList.contains('fa-copy')) {
-            if(target.id == 'from') {
-                navigator.clipboard.writeText(fromText.value)
-            }
-            else{
-                navigator.clipboard.writeText(toText.value)
-            }
-        }
-        else{
-            let utterance
-            if(target.id == 'from') {
-                utterance = new SpeechSynthesisUtterance(fromText.value)
-                utterance.lang = selectTag[0].value
-            }
-            else{
-                utterance = new SpeechSynthesisUtterance(toText.value)
-                utterance.lang = selectTag[1].value
-            }
-            speechSynthesis.speak(utterance)
+function showMenu(selectedTask) {
+    let taskMenu = selectedTask.parentElement.lastElementChild
+    taskMenu.classList.add('show')
+    document.addEventListener('click', e => {
+        if(e.target.tagName != 'I' || e.target != selectedTask) {
+            taskMenu.classList.remove('show')
         }
     })
+}
+
+showTodo('all')
+
+function updateStatus(selectedTask) {
+    let taskName = selectedTask.parentElement.lastElementChild
+    if(selectedTask.checked){
+        taskName.classList.add('checked')
+        todos[selectedTask.id].status = 'completed'
+    }
+    else {
+        taskName.classList.remove('checked')
+        todos[selectedTask.id].status = 'pending'
+    }
+    localStorage.setItem('todo-list', JSON.stringify(todos))
+}
+
+function editTask(taskId, taskName) {
+    editId = taskId
+    isEditTask = true
+    taskInput.value = taskName
+    taskInput.focus()
+}
+
+function deleteTask(deleteId) {
+    todos.splice(deleteId, 1)
+    localStorage.setItem('todo-list', JSON.stringify(todos))
+    showTodo('all')
+}
+
+clearAll.addEventListener('click', () => {
+    todos.splice(0, todos.length)
+    localStorage.setItem('todo-list', JSON.stringify(todos))
+    showTodo('all')
+})
+
+taskInput.addEventListener('keyup', e => {
+    let userTask = taskInput.value.trim()
+    if(e.key == 'Enter' && userTask) {
+        if(!isEditTask) {
+            if(!todos) {
+                todos = []
+        }
+        let taskInfo = {name: userTask, status: 'pending'}
+        todos.push(taskInfo)
+        }
+        else {
+            isEditTask = false
+            todos[editId].name = userTask
+        } 
+        taskInput.value = ''
+        localStorage.setItem('todo-list', JSON.stringify(todos))
+        showTodo('all')
+    }
 })
